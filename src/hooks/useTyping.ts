@@ -26,7 +26,6 @@ export function useTyping(initialText: string = '') {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const composingRef = useRef(false)
 
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
@@ -41,7 +40,6 @@ export function useTyping(initialText: string = '') {
       stats: null,
     })
     if (inputRef.current) inputRef.current.value = ''
-    composingRef.current = false
   }, [state.text])
 
   const start = useCallback(() => {
@@ -94,36 +92,41 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 核心：用 keydown 处理所有字符输入
+  // 通道1: keydown → 英文/符号/空格直接输入
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
 
-    // keyCode 229 = IME 正在处理（中文输入法），跳过
+    // keyCode 229 = IME 正在处理，跳过
     if (keyCode === 229) return
 
-    // 退格键（暂不实现删除功能）
     if (e.key === 'Backspace') {
       e.preventDefault()
       return
     }
 
-    // 只处理单个可见字符
-    if (e.key.length !== 1) return
-
-    // 忽略带修饰键的组合
-    if (e.ctrlKey || e.metaKey || e.altKey) return
-
-    e.preventDefault()
-    advanceChar(e.key)
+    // 单个可见字符（英文、数字、符号、空格等）
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault()
+      advanceChar(e.key)
+    }
   }, [advanceChar])
 
-  // IME 组合开始/结束（辅助标记，但核心靠 keyCode 229）
-  const handleCompositionStart = useCallback(() => {
-    composingRef.current = true
-  }, [])
+  // 通道2: compositionend → IME 组合完成的汉字
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
+    const composed = e.data
+    if (composed && composed.length > 0) {
+      // 清空输入框
+      if (inputRef.current) inputRef.current.value = ''
+      // 逐字录入
+      for (const ch of composed) {
+        advanceChar(ch)
+      }
+    }
+  }, [advanceChar])
 
-  const handleCompositionEnd = useCallback(() => {
-    composingRef.current = false
+  // IME 开始组合
+  const handleCompositionStart = useCallback(() => {
+    // 无需特殊处理
   }, [])
 
   useEffect(() => {

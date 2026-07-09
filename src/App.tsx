@@ -48,20 +48,36 @@ const App: React.FC = () => {
     (ch, i) => i < state.text.length && ch === state.text[i]
   ).length
 
+  // 获取当前文本的来源信息
+  const sourceInfo = useMemo(() => {
+    if (mode === 'builtin' && selectedText.source) {
+      return selectedText.source
+    }
+    return null
+  }, [mode, selectedText])
+
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <header className="border-b border-bg-tertiary px-6 py-4">
+    <div className="min-h-screen flex flex-col">
+      {/* 顶栏 - 手绘风格 */}
+      <header className="border-b-2 border-ink px-6 py-4 bg-white/60 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-              <span className="text-accent font-bold font-mono text-sm">T</span>
+            <div className="w-9 h-9 rounded-full border-2 border-ink flex items-center justify-center bg-pencil -rotate-6">
+              <span className="text-ink font-bold font-mono text-sm">T</span>
             </div>
-            <h1 className="text-text-primary font-semibold text-lg">TypePrac</h1>
+            <h1 className="text-ink font-handwriting text-2xl tracking-wide">TypePrac</h1>
           </div>
+          {sourceInfo && (
+            <div className="text-ink-lighter text-sm font-handwriting tracking-wider">
+              —— {sourceInfo}
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-8">
+      {/* 主内容 */}
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-6">
+        {/* 文本选择 */}
         <ModeSelector
           selectedId={selectedText.id}
           onSelect={(t) => { setSelectedText(t); setShowResult(false) }}
@@ -71,6 +87,7 @@ const App: React.FC = () => {
           onModeChange={(m) => { setMode(m); setShowResult(false) }}
         />
 
+        {/* 统计面板 */}
         <StatsPanel
           stats={state.stats}
           totalLength={activeText.length}
@@ -89,14 +106,14 @@ const App: React.FC = () => {
           typedChars={state.typedChars}
         />
 
-        {/* 可见输入框 */}
+        {/* 打字输入框 */}
         <textarea
           ref={inputRef}
-          className="typing-textarea"
+          className="typing-textarea mb-4"
           onInput={handleInput}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
-          placeholder={state.isActive ? '' : '点击下方按钮开始，或直接在这里打字'}
+          placeholder={state.isActive ? '' : '在这里打字开始练习……'}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
@@ -104,25 +121,29 @@ const App: React.FC = () => {
           rows={3}
         />
 
-        <div className="flex justify-center gap-3 mt-4 mb-8">
+        {/* 控制按钮 */}
+        <div className="flex justify-center gap-4 mb-8">
           {!state.isActive && !state.isFinished ? (
-            <button className="btn-primary px-8 py-3 text-base" onClick={start}>
-              开始练习
+            <button className="btn-pencil btn-pencil-primary px-10 py-3 text-base" onClick={start}>
+              开始练习 ✎
             </button>
           ) : (
-            <button className="btn-secondary px-8 py-3 text-base" onClick={() => reset()}>
-              重新开始
+            <button className="btn-pencil px-10 py-3 text-base" onClick={() => reset()}>
+              重新开始 ↻
             </button>
           )}
         </div>
 
+        {/* 历史记录 */}
         <HistoryPanel records={history} onRefresh={loadHistory} />
       </main>
 
-      <footer className="border-t border-bg-tertiary px-6 py-3 text-center text-text-secondary/40 text-xs">
-        TypePrac - 直接在输入框中打字即可
+      {/* 底部 */}
+      <footer className="border-t-2 border-ink px-6 py-4 text-center text-ink-lighter text-xs font-handwriting tracking-wider bg-white/40">
+        TypePrac · 慢慢来，比较快
       </footer>
 
+      {/* 结果弹窗 */}
       {showResult && state.stats && (
         <ResultModal
           stats={state.stats}

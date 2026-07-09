@@ -20,26 +20,28 @@
     color: #e1e7ef;
   }
 
-  /* 打字输入框 - 覆盖在原文显示区上方，IME可正常交互 */
-  .typing-input {
-    position: absolute;
-    inset: 0;
+  /* 可见输入框 - 用户在此直接打字，IME完全正常 */
+  .typing-textarea {
     width: 100%;
-    height: 100%;
-    opacity: 0.01;
-    caret-color: transparent;
-    font-size: 18px;
-    font-family: 'JetBrains Mono', monospace;
-    border: none;
+    padding: 16px 20px;
+    background: #1a1f2e;
+    border: 2px solid #252d3f;
+    border-radius: 12px;
+    color: #e1e7ef;
+    font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
+    font-size: 16px;
+    line-height: 1.6;
     outline: none;
-    background: transparent;
-    color: transparent;
-    cursor: text;
+    resize: none;
+    transition: border-color 0.2s;
   }
 
-  .typing-input:focus {
-    outline: none;
-    border: none;
+  .typing-textarea:focus {
+    border-color: #5dade2;
+  }
+
+  .typing-textarea::placeholder {
+    color: #8892a4;
   }
 
   /* 滚动条样式 */

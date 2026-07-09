@@ -27,7 +27,7 @@ export function useTyping(initialText: string = '') {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const isComposingRef = useRef(false)
-  const pendingCharsRef = useRef<string[]>([])
+  const lastProcessedLenRef = useRef(0)
 
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
@@ -41,6 +41,7 @@ export function useTyping(initialText: string = '') {
       endTime: null,
       stats: null,
     })
+    lastProcessedLenRef.current = 0
   }, [state.text])
 
   const start = useCallback(() => {
@@ -49,7 +50,11 @@ export function useTyping(initialText: string = '') {
       isActive: true,
       startTime: Date.now(),
     }))
-    setTimeout(() => inputRef.current?.focus(), 50)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current!.value = ''
+      lastProcessedLenRef.current = 0
+    }, 50)
   }, [])
 
   // IME 开始组合
@@ -58,15 +63,11 @@ export function useTyping(initialText: string = '') {
   }, [])
 
   // IME 组合结束
-  const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
+  const handleCompositionEnd = useCallback(() => {
     isComposingRef.current = false
-    const composed = e.data
-    if (composed && composed.length > 0) {
-      pendingCharsRef.current = composed.split('')
-    }
   }, [])
 
-  // 核心：推进一个字符
+  // 推进一个字符
   const advanceChar = useCallback((ch: string) => {
     setState((prev) => {
       if (!prev.isActive || prev.isFinished) return prev
@@ -105,48 +106,51 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 处理键盘输入（英文/符号）
+  // 处理输入（IME组合结束 或 直接英文输入）
+  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.target as HTMLInputElement
+    const currentVal = input.value
+
+    // IME 组合中，不处理
+    if (isComposingRef.current) return
+
+    // 计算新输入的字符
+    const prevLen = lastProcessedLenRef.current
+    if (currentVal.length <= prevLen) {
+      // 没有新字符（比如用户按了退格）
+      lastProcessedLenRef.current = currentVal.length
+      return
+    }
+
+    // 新输入的文本
+    const newText = currentVal.slice(prevLen)
+    lastProcessedLenRef.current = currentVal.length
+
+    // 清空输入框
+    input.value = ''
+
+    // 逐个字符推进
+    for (const ch of newText) {
+      advanceChar(ch)
+    }
+
+    // 重置位置，因为输入框已被清空
+    lastProcessedLenRef.current = 0
+  }, [advanceChar])
+
+  // 处理键盘事件 - 只处理特殊键
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // IME 组合中，忽略
     if (isComposingRef.current) return
 
     if (e.key === 'Backspace') {
       e.preventDefault()
+      // 可以添加退格删除功能
       return
     }
 
-    if (e.key.length !== 1) return
-
-    // 如果输入法有组合字符待提交，忽略 keydown
-    if (pendingCharsRef.current.length > 0) return
-
-    e.preventDefault()
-    advanceChar(e.key)
-  }, [advanceChar])
-
-  // 处理 IME 最终输入
-  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
-    const input = e.target as HTMLInputElement
-
-    // 从 compositionEnd 获取的字符优先
-    if (pendingCharsRef.current.length > 0) {
-      const chars = pendingCharsRef.current
-      pendingCharsRef.current = []
-      input.value = ''
-      for (const ch of chars) {
-        advanceChar(ch)
-      }
-      return
-    }
-
-    // 直接输入（非IME）
-    const value = input.value
-    if (value) {
-      input.value = ''
-      for (const ch of value.split('')) {
-        advanceChar(ch)
-      }
-    }
-  }, [advanceChar])
+    // 普通字符让 input 事件处理，这里不拦截
+  }, [])
 
   useEffect(() => {
     if (initialText) {

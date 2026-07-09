@@ -20,13 +20,26 @@
     color: #e1e7ef;
   }
 
-  /* 隐藏打字输入框的光标 */
-  .hidden-input {
+  /* 打字输入框 - 覆盖在原文显示区上方，IME可正常交互 */
+  .typing-input {
     position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.01;
+    caret-color: transparent;
+    font-size: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: transparent;
+    cursor: text;
+  }
+
+  .typing-input:focus {
+    outline: none;
+    border: none;
   }
 
   /* 滚动条样式 */

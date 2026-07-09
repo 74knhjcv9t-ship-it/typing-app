@@ -133,27 +133,27 @@ const App: React.FC = () => {
           startTime={state.startTime}
         />
 
-        {/* 原文显示区 */}
-        <TextDisplay
-          ref={containerRef}
-          text={activeText}
-          currentIndex={state.currentIndex}
-          typedChars={state.typedChars}
-        />
-
-        {/* 隐藏输入框 */}
-        <input
-          ref={inputRef}
-          className="hidden-input"
-          onKeyDown={handleKeyDown}
-          onCompositionStart={handleCompositionStart}
-          onCompositionEnd={handleCompositionEnd}
-          onInput={handleInput}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-        />
+        {/* 原文显示区 + 输入框叠层 */}
+        <div className="relative">
+          <TextDisplay
+            ref={containerRef}
+            text={activeText}
+            currentIndex={state.currentIndex}
+            typedChars={state.typedChars}
+          />
+          <input
+            ref={inputRef}
+            className="typing-input"
+            onKeyDown={handleKeyDown}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            onInput={handleInput}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+          />
+        </div>
 
         {/* 控制按钮 */}
         <div className="flex justify-center gap-3 mb-8">

@@ -26,6 +26,7 @@ export function useTyping(initialText: string = '') {
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const composingRef = useRef(false)
 
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
@@ -39,6 +40,7 @@ export function useTyping(initialText: string = '') {
       endTime: null,
       stats: null,
     })
+    composingRef.current = false
     if (inputRef.current) inputRef.current.value = ''
   }, [state.text])
 
@@ -54,14 +56,13 @@ export function useTyping(initialText: string = '') {
     }, 50)
   }, [])
 
-  // 每次输入变化时，对比输入框与原文
-  const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
-    const input = e.target as HTMLTextAreaElement
-    const inputVal = input.value
-
+  // 对比输入框内容与原文
+  const processValue = useCallback((inputVal: string) => {
     setState((prev) => {
-      if (!prev.isActive && !prev.isFinished) {
-        // 首次输入，自动开始计时
+      if (prev.isFinished) return prev
+
+      if (!prev.isActive) {
+        // 首次输入，自动开始
         const now = Date.now()
         const chars = inputVal.split('')
         const correctChars = chars.filter((c, i) => i < prev.text.length && c === prev.text[i]).length
@@ -89,7 +90,7 @@ export function useTyping(initialText: string = '') {
         }
       }
 
-      // 正常输入中
+      // 正常输入
       const chars = inputVal.split('')
       const isFinished = chars.length >= prev.text.length
 
@@ -116,6 +117,26 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
+  // IME 组合中 → 跳过 input 事件
+  const handleCompositionStart = useCallback(() => {
+    composingRef.current = true
+  }, [])
+
+  // IME 组合结束 → 处理输入框中的最终文本
+  const handleCompositionEnd = useCallback(() => {
+    composingRef.current = false
+    if (inputRef.current) {
+      processValue(inputRef.current.value)
+    }
+  }, [processValue])
+
+  // input 事件：IME组合中跳过，英文直接处理
+  const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
+    if (composingRef.current) return
+    const input = e.target as HTMLTextAreaElement
+    processValue(input.value)
+  }, [processValue])
+
   useEffect(() => {
     if (initialText) {
       reset(initialText)
@@ -138,5 +159,7 @@ export function useTyping(initialText: string = '') {
     start,
     reset,
     handleInput,
+    handleCompositionStart,
+    handleCompositionEnd,
   }
 }

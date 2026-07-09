@@ -20,7 +20,7 @@ const App: React.FC = () => {
     return selectedText.content
   }, [mode, customText, selectedText])
 
-  const { state, inputRef, containerRef, start, reset, handleInput } = useTyping(activeText)
+  const { state, inputRef, containerRef, start, reset, handleInput, handleCompositionStart, handleCompositionEnd } = useTyping(activeText)
 
   const loadHistory = useCallback(() => setHistory(getHistory()), [])
 
@@ -94,6 +94,8 @@ const App: React.FC = () => {
           ref={inputRef}
           className="typing-textarea"
           onInput={handleInput}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           placeholder={state.isActive ? '' : '点击下方按钮开始，或直接在这里打字'}
           autoComplete="off"
           autoCorrect="off"

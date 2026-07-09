@@ -24,6 +24,8 @@ export function useTyping(initialText: string = '') {
     stats: null,
   })
 
+  const [composingText, setComposingText] = useState('') // 当前IME拼音
+
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -39,6 +41,7 @@ export function useTyping(initialText: string = '') {
       endTime: null,
       stats: null,
     })
+    setComposingText('')
     if (inputRef.current) inputRef.current.value = ''
   }, [state.text])
 
@@ -92,11 +95,9 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 通道1: keydown → 英文/符号/空格直接输入
+  // 通道1: keydown → 英文直接输入
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
-
-    // keyCode 229 = IME 正在处理，跳过
     if (keyCode === 229) return
 
     if (e.key === 'Backspace') {
@@ -104,30 +105,33 @@ export function useTyping(initialText: string = '') {
       return
     }
 
-    // 单个可见字符（英文、数字、符号、空格等）
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault()
       advanceChar(e.key)
     }
   }, [advanceChar])
 
-  // 通道2: compositionend → IME 组合完成的汉字
+  // IME 开始组合
+  const handleCompositionStart = useCallback(() => {
+    // 不做事
+  }, [])
+
+  // IME 组合更新（拼音变化时实时更新显示）
+  const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
+    setComposingText(e.data)
+  }, [])
+
+  // 通道2: IME 组合结束 → 录入汉字
   const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
     const composed = e.data
+    setComposingText('')
+    if (inputRef.current) inputRef.current.value = ''
     if (composed && composed.length > 0) {
-      // 清空输入框
-      if (inputRef.current) inputRef.current.value = ''
-      // 逐字录入
       for (const ch of composed) {
         advanceChar(ch)
       }
     }
   }, [advanceChar])
-
-  // IME 开始组合
-  const handleCompositionStart = useCallback(() => {
-    // 无需特殊处理
-  }, [])
 
   useEffect(() => {
     if (initialText) {
@@ -146,12 +150,14 @@ export function useTyping(initialText: string = '') {
 
   return {
     state,
+    composingText,
     inputRef,
     containerRef,
     start,
     reset,
     handleKeyDown,
     handleCompositionStart,
+    handleCompositionUpdate,
     handleCompositionEnd,
   }
 }

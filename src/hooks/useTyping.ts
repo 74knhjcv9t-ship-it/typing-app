@@ -24,7 +24,7 @@ export function useTyping(initialText: string = '') {
     stats: null,
   })
 
-  const [composingText, setComposingText] = useState('') // 当前IME拼音
+  const [composingText, setComposingText] = useState('')
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -57,6 +57,7 @@ export function useTyping(initialText: string = '') {
     }, 50)
   }, [])
 
+  // 推进一个字符（用于英文/符号 单字符输入）
   const advanceChar = useCallback((ch: string) => {
     setState((prev) => {
       if (!prev.isActive || prev.isFinished) return prev
@@ -95,7 +96,53 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 通道1: keydown → 英文直接输入
+  // 批量推进多个字符（用于IME组合文本）
+  const advanceChars = useCallback((chars: string[]) => {
+    setState((prev) => {
+      if (!prev.isActive || prev.isFinished) return prev
+
+      const newTypedChars = [...prev.typedChars]
+      let newIndex = prev.currentIndex
+
+      for (const ch of chars) {
+        if (newIndex >= prev.text.length) break
+        newTypedChars.push(ch)
+        newIndex++
+      }
+
+      const isFinished = newIndex >= prev.text.length
+
+      if (isFinished) {
+        const now = Date.now()
+        const duration = now - (prev.startTime ?? now)
+        const correctChars = newTypedChars.filter(
+          (c, i) => i < prev.text.length && c === prev.text[i]
+        ).length
+        return {
+          ...prev,
+          currentIndex: newIndex,
+          typedChars: newTypedChars,
+          isFinished: true,
+          isActive: false,
+          endTime: now,
+          stats: calculateStats(
+            newTypedChars.length,
+            correctChars,
+            duration,
+            prev.text.length
+          ),
+        }
+      }
+
+      return {
+        ...prev,
+        currentIndex: newIndex,
+        typedChars: newTypedChars,
+      }
+    })
+  }, [])
+
+  // 通道1: keydown → 英文/符号直接输入
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
     if (keyCode === 229) return
@@ -111,27 +158,22 @@ export function useTyping(initialText: string = '') {
     }
   }, [advanceChar])
 
-  // IME 开始组合
-  const handleCompositionStart = useCallback(() => {
-    // 不做事
-  }, [])
+  const handleCompositionStart = useCallback(() => {}, [])
 
-  // IME 组合更新（拼音变化时实时更新显示）
+  // IME 拼音更新 → 显示在界面
   const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
     setComposingText(e.data)
   }, [])
 
-  // 通道2: IME 组合结束 → 录入汉字
+  // 通道2: IME 组合结束 → 一次性批量录入
   const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
     const composed = e.data
     setComposingText('')
     if (inputRef.current) inputRef.current.value = ''
     if (composed && composed.length > 0) {
-      for (const ch of composed) {
-        advanceChar(ch)
-      }
+      advanceChars(composed.split(''))
     }
-  }, [advanceChar])
+  }, [advanceChars])
 
   useEffect(() => {
     if (initialText) {

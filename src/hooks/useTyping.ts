@@ -26,8 +26,9 @@ export function useTyping(initialText: string = '') {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const isComposingRef = useRef(false)
+  const pendingCharsRef = useRef<string[]>([])
 
-  // 重置
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
     setState({
@@ -42,51 +43,44 @@ export function useTyping(initialText: string = '') {
     })
   }, [state.text])
 
-  // 开始练习
   const start = useCallback(() => {
     setState((prev) => ({
       ...prev,
       isActive: true,
       startTime: Date.now(),
     }))
-    // 聚焦输入框
     setTimeout(() => inputRef.current?.focus(), 50)
   }, [])
 
-  // 处理键盘输入
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  // IME 开始组合
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true
+  }, [])
+
+  // IME 组合结束
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
+    isComposingRef.current = false
+    const composed = e.data
+    if (composed && composed.length > 0) {
+      pendingCharsRef.current = composed.split('')
+    }
+  }, [])
+
+  // 核心：推进一个字符
+  const advanceChar = useCallback((ch: string) => {
     setState((prev) => {
       if (!prev.isActive || prev.isFinished) return prev
 
-      // 不允许退格删除已打字符（模拟真实打字机）
-      if (e.key === 'Backspace') {
-        e.preventDefault()
-        return prev
-      }
-
-      // 只处理单个字符输入
-      if (e.key.length !== 1) return prev
-
-      e.preventDefault()
-
       const newIndex = prev.currentIndex + 1
-      const newTypedChars = [...prev.typedChars, e.key]
+      const newTypedChars = [...prev.typedChars, ch]
       const isFinished = newIndex >= prev.text.length
 
-      // 自动结束
       if (isFinished) {
         const now = Date.now()
         const duration = now - (prev.startTime ?? now)
         const correctChars = newTypedChars.filter(
-          (ch, i) => i < prev.text.length && ch === prev.text[i]
+          (c, i) => i < prev.text.length && c === prev.text[i]
         ).length
-        const stats = calculateStats(
-          newTypedChars.length,
-          correctChars,
-          duration,
-          prev.text.length
-        )
-
         return {
           ...prev,
           currentIndex: newIndex,
@@ -94,7 +88,12 @@ export function useTyping(initialText: string = '') {
           isFinished: true,
           isActive: false,
           endTime: now,
-          stats,
+          stats: calculateStats(
+            newTypedChars.length,
+            correctChars,
+            duration,
+            prev.text.length
+          ),
         }
       }
 
@@ -106,14 +105,55 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 切换文本时重置
+  // 处理键盘输入（英文/符号）
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (isComposingRef.current) return
+
+    if (e.key === 'Backspace') {
+      e.preventDefault()
+      return
+    }
+
+    if (e.key.length !== 1) return
+
+    // 如果输入法有组合字符待提交，忽略 keydown
+    if (pendingCharsRef.current.length > 0) return
+
+    e.preventDefault()
+    advanceChar(e.key)
+  }, [advanceChar])
+
+  // 处理 IME 最终输入
+  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.target as HTMLInputElement
+
+    // 从 compositionEnd 获取的字符优先
+    if (pendingCharsRef.current.length > 0) {
+      const chars = pendingCharsRef.current
+      pendingCharsRef.current = []
+      input.value = ''
+      for (const ch of chars) {
+        advanceChar(ch)
+      }
+      return
+    }
+
+    // 直接输入（非IME）
+    const value = input.value
+    if (value) {
+      input.value = ''
+      for (const ch of value.split('')) {
+        advanceChar(ch)
+      }
+    }
+  }, [advanceChar])
+
   useEffect(() => {
     if (initialText) {
       reset(initialText)
     }
   }, [initialText, reset])
 
-  // 自动滚动到当前字符
   useEffect(() => {
     if (containerRef.current && state.currentIndex > 0) {
       const chars = containerRef.current.querySelectorAll('.char-item')
@@ -130,5 +170,8 @@ export function useTyping(initialText: string = '') {
     start,
     reset,
     handleKeyDown,
+    handleCompositionStart,
+    handleCompositionEnd,
+    handleInput,
   }
 }

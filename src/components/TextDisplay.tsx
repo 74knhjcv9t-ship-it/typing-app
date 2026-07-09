@@ -11,12 +11,19 @@ const TextDisplay = React.forwardRef<HTMLDivElement, TextDisplayProps>(
     return (
       <div
         ref={ref}
-        className="card p-6 mb-4 max-h-64 overflow-y-auto font-mono text-lg leading-relaxed tracking-wide select-none"
+        className="sketch-card mb-4 max-h-64 overflow-y-auto font-mono text-lg leading-relaxed tracking-wide select-none animate-sketch-in"
         tabIndex={-1}
       >
+        {/* 顶部装饰线 */}
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-warm-border">
+          <span className="text-xs text-ink-lighter font-handwriting tracking-wider">type here</span>
+          <span className="flex-1" />
+          <span className="inline-block w-4 h-4 rounded-full border-2 border-ink-lighter" />
+        </div>
+
         <div className="flex flex-wrap gap-0">
           {text.split('').map((char, index) => {
-            let className = 'char-item inline-block transition-colors duration-75 '
+            let className = 'char-item inline-block transition-colors duration-100 leading-relaxed '
 
             if (index === currentIndex && typedChars[index] === undefined) {
               className += 'char-current'

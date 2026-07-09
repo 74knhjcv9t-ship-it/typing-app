@@ -20,26 +20,11 @@ const App: React.FC = () => {
     return selectedText.content
   }, [mode, customText, selectedText])
 
-  const {
-    state,
-    composingText,
-    inputRef,
-    containerRef,
-    start,
-    reset,
-    handleKeyDown,
-    handleCompositionStart,
-    handleCompositionUpdate,
-    handleCompositionEnd,
-  } = useTyping(activeText)
+  const { state, inputRef, containerRef, start, reset, handleInput } = useTyping(activeText)
 
-  const loadHistory = useCallback(() => {
-    setHistory(getHistory())
-  }, [])
+  const loadHistory = useCallback(() => setHistory(getHistory()), [])
 
-  useEffect(() => {
-    loadHistory()
-  }, [loadHistory])
+  useEffect(() => { loadHistory() }, [loadHistory])
 
   useEffect(() => {
     if (state.stats && !showResult) {
@@ -59,26 +44,6 @@ const App: React.FC = () => {
     }
   }, [state.stats, showResult, mode, selectedText, loadHistory])
 
-  const handleSelectText = useCallback((text: PracticeText) => {
-    setSelectedText(text)
-    setShowResult(false)
-  }, [])
-
-  const handleCustomTextChange = useCallback((text: string) => {
-    setCustomText(text)
-    setShowResult(false)
-  }, [])
-
-  const handleRestart = useCallback(() => {
-    setShowResult(false)
-    reset()
-  }, [reset])
-
-  const handleModeChange = useCallback((newMode: 'builtin' | 'custom') => {
-    setMode(newMode)
-    setShowResult(false)
-  }, [])
-
   const correctCount = state.typedChars.filter(
     (ch, i) => i < state.text.length && ch === state.text[i]
   ).length
@@ -93,20 +58,17 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-text-primary font-semibold text-lg">TypePrac</h1>
           </div>
-          <div className="text-text-secondary text-xs">
-            点击开始或直接打字即可开始练习
-          </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-8">
         <ModeSelector
           selectedId={selectedText.id}
-          onSelect={handleSelectText}
+          onSelect={(t) => { setSelectedText(t); setShowResult(false) }}
           customText={customText}
-          onCustomTextChange={handleCustomTextChange}
+          onCustomTextChange={(t) => { setCustomText(t); setShowResult(false) }}
           mode={mode}
-          onModeChange={handleModeChange}
+          onModeChange={(m) => { setMode(m); setShowResult(false) }}
         />
 
         <StatsPanel
@@ -119,58 +81,51 @@ const App: React.FC = () => {
           startTime={state.startTime}
         />
 
-        <div className="relative">
-          <TextDisplay
-            ref={containerRef}
-            text={activeText}
-            currentIndex={state.currentIndex}
-            typedChars={state.typedChars}
-            composingText={composingText}
-          />
-          <input
-            ref={inputRef}
-            className="typing-input"
-            onKeyDown={handleKeyDown}
-            onCompositionStart={handleCompositionStart}
-            onCompositionUpdate={handleCompositionUpdate}
-            onCompositionEnd={handleCompositionEnd}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-          />
-        </div>
+        {/* 原文显示区 */}
+        <TextDisplay
+          ref={containerRef}
+          text={activeText}
+          currentIndex={state.currentIndex}
+          typedChars={state.typedChars}
+        />
 
-        <div className="flex justify-center gap-3 mb-8">
+        {/* 可见输入框 */}
+        <textarea
+          ref={inputRef}
+          className="typing-textarea"
+          onInput={handleInput}
+          placeholder={state.isActive ? '' : '点击下方按钮开始，或直接在这里打字'}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          rows={3}
+        />
+
+        <div className="flex justify-center gap-3 mt-4 mb-8">
           {!state.isActive && !state.isFinished ? (
             <button className="btn-primary px-8 py-3 text-base" onClick={start}>
               开始练习
             </button>
-          ) : state.isActive ? (
+          ) : (
             <button className="btn-secondary px-8 py-3 text-base" onClick={() => reset()}>
               重新开始
             </button>
-          ) : null}
+          )}
         </div>
-
-        {!state.isActive && !state.isFinished && (
-          <div className="text-center text-text-secondary/50 text-xs mb-8">
-            或直接按任意键开始
-          </div>
-        )}
 
         <HistoryPanel records={history} onRefresh={loadHistory} />
       </main>
 
       <footer className="border-t border-bg-tertiary px-6 py-3 text-center text-text-secondary/40 text-xs">
-        TypePrac - 专注打字练习
+        TypePrac - 直接在输入框中打字即可
       </footer>
 
       {showResult && state.stats && (
         <ResultModal
           stats={state.stats}
           textTitle={mode === 'builtin' ? selectedText.title : '自定义文本'}
-          onRestart={handleRestart}
+          onRestart={() => { setShowResult(false); reset() }}
           onClose={() => setShowResult(false)}
         />
       )}

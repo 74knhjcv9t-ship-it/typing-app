@@ -28,7 +28,6 @@ export function useTyping(initialText: string = '') {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const composingRef = useRef(false)
 
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
@@ -43,7 +42,6 @@ export function useTyping(initialText: string = '') {
       stats: null,
     })
     setComposingText('')
-    composingRef.current = false
     if (inputRef.current) inputRef.current.value = ''
   }, [state.text])
 
@@ -59,7 +57,7 @@ export function useTyping(initialText: string = '') {
     }, 50)
   }, [])
 
-  // 批量推进字符
+  // 批量录入
   const advanceChars = useCallback((chars: string[]) => {
     setState((prev) => {
       if (!prev.isActive || prev.isFinished) return prev
@@ -105,44 +103,41 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // IME 组合开始
-  const handleCompositionStart = useCallback(() => {
-    composingRef.current = true
-  }, [])
-
-  // IME 拼音更新 → 显示拼音提示
-  const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
-    setComposingText(e.data)
-  }, [])
-
-  // IME 组合结束 → 标记结束，让 input 事件处理
-  const handleCompositionEnd = useCallback(() => {
-    composingRef.current = false
-  }, [])
-
-  // 核心: 读取 input.value 处理所有输入
-  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
-    // IME 组合中 → 跳过
-    if (composingRef.current) return
-
-    const input = e.target as HTMLInputElement
-    const value = input.value
-    if (!value) return
-
-    // 清空输入框
-    input.value = ''
-
-    // 录入所有字符
-    advanceChars(value.split(''))
-  }, [advanceChars])
-
-  // keydown: 仅阻止退格，不处理字符
+  // 通道1: keydown → 英文/符号直接输入
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
+
+    // 退格
     if (e.key === 'Backspace') {
       e.preventDefault()
       return
     }
+
+    // 单个可见字符，且不是IME输入（keyCode=229）
+    if (e.key.length === 1 && keyCode !== 229 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault()
+      advanceChars([e.key])
+    }
+  }, [advanceChars])
+
+  // IME 拼音更新
+  const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
+    setComposingText(e.data)
   }, [])
+
+  // 通道2: compositionend → IME组合完成
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
+    setComposingText('')
+    if (inputRef.current) inputRef.current.value = ''
+
+    const composed = e.data
+    if (composed && composed.length > 0) {
+      advanceChars(composed.split(''))
+    }
+  }, [advanceChars])
+
+  // IME 组合开始（无需特殊处理）
+  const handleCompositionStart = useCallback(() => {}, [])
 
   useEffect(() => {
     if (initialText) {
@@ -170,6 +165,5 @@ export function useTyping(initialText: string = '') {
     handleCompositionStart,
     handleCompositionUpdate,
     handleCompositionEnd,
-    handleInput,
   }
 }

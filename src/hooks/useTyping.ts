@@ -105,65 +105,44 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // keydown: 只防退格，不处理字符（字符全部交给 input 事件）
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace') {
-      e.preventDefault()
-      return
-    }
-    // 不 preventDefault，让 input 事件自然触发
-  }, [])
-
   // IME 组合开始
   const handleCompositionStart = useCallback(() => {
     composingRef.current = true
   }, [])
 
-  // IME 拼音更新 → 显示在界面
+  // IME 拼音更新 → 显示拼音提示
   const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
     setComposingText(e.data)
   }, [])
 
-  // IME 组合结束
+  // IME 组合结束 → 标记结束，让 input 事件处理
   const handleCompositionEnd = useCallback(() => {
     composingRef.current = false
   }, [])
 
-  // 核心: input 事件处理所有输入
+  // 核心: 读取 input.value 处理所有输入
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    // IME 组合中 → 跳过
+    if (composingRef.current) return
+
     const input = e.target as HTMLInputElement
-    const nativeEvent = e.nativeEvent as InputEvent
-    const inputType = nativeEvent.inputType
-    const data = nativeEvent.data
+    const value = input.value
+    if (!value) return
 
-    // IME 组合中 → 跳过，等组合结束
-    if (composingRef.current) {
-      return
-    }
+    // 清空输入框
+    input.value = ''
 
-    // 组合结束后的提交
-    if (inputType === 'insertFromComposition') {
-      if (data && data.length > 0) {
-        input.value = ''
-        advanceChars(data.split(''))
-      }
-      return
-    }
-
-    // 直接输入（英文/数字/符号/空格）
-    if (inputType === 'insertText' && data) {
-      input.value = ''
-      advanceChars(data.split(''))
-      return
-    }
-
-    // 粘贴
-    if (inputType === 'insertFromPaste' && data) {
-      input.value = ''
-      advanceChars(data.split(''))
-      return
-    }
+    // 录入所有字符
+    advanceChars(value.split(''))
   }, [advanceChars])
+
+  // keydown: 仅阻止退格，不处理字符
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace') {
+      e.preventDefault()
+      return
+    }
+  }, [])
 
   useEffect(() => {
     if (initialText) {

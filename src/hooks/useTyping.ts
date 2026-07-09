@@ -28,6 +28,7 @@ export function useTyping(initialText: string = '') {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const composingRef = useRef(false)
 
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
@@ -42,6 +43,7 @@ export function useTyping(initialText: string = '') {
       stats: null,
     })
     setComposingText('')
+    composingRef.current = false
     if (inputRef.current) inputRef.current.value = ''
   }, [state.text])
 
@@ -57,46 +59,7 @@ export function useTyping(initialText: string = '') {
     }, 50)
   }, [])
 
-  // 推进一个字符（用于英文/符号 单字符输入）
-  const advanceChar = useCallback((ch: string) => {
-    setState((prev) => {
-      if (!prev.isActive || prev.isFinished) return prev
-
-      const newIndex = prev.currentIndex + 1
-      const newTypedChars = [...prev.typedChars, ch]
-      const isFinished = newIndex >= prev.text.length
-
-      if (isFinished) {
-        const now = Date.now()
-        const duration = now - (prev.startTime ?? now)
-        const correctChars = newTypedChars.filter(
-          (c, i) => i < prev.text.length && c === prev.text[i]
-        ).length
-        return {
-          ...prev,
-          currentIndex: newIndex,
-          typedChars: newTypedChars,
-          isFinished: true,
-          isActive: false,
-          endTime: now,
-          stats: calculateStats(
-            newTypedChars.length,
-            correctChars,
-            duration,
-            prev.text.length
-          ),
-        }
-      }
-
-      return {
-        ...prev,
-        currentIndex: newIndex,
-        typedChars: newTypedChars,
-      }
-    })
-  }, [])
-
-  // 批量推进多个字符（用于IME组合文本）
+  // 批量推进字符
   const advanceChars = useCallback((chars: string[]) => {
     setState((prev) => {
       if (!prev.isActive || prev.isFinished) return prev
@@ -142,36 +105,63 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 通道1: keydown → 英文/符号直接输入
+  // keydown: 只防退格，不处理字符（字符全部交给 input 事件）
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
-    if (keyCode === 229) return
-
     if (e.key === 'Backspace') {
       e.preventDefault()
       return
     }
+    // 不 preventDefault，让 input 事件自然触发
+  }, [])
 
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault()
-      advanceChar(e.key)
-    }
-  }, [advanceChar])
-
-  const handleCompositionStart = useCallback(() => {}, [])
+  // IME 组合开始
+  const handleCompositionStart = useCallback(() => {
+    composingRef.current = true
+  }, [])
 
   // IME 拼音更新 → 显示在界面
   const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
     setComposingText(e.data)
   }, [])
 
-  // 通道2: IME 组合结束 → 一次性批量录入
-  const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
-    const composed = e.data
-    setComposingText('')
-    if (inputRef.current) inputRef.current.value = ''
-    if (composed && composed.length > 0) {
-      advanceChars(composed.split(''))
+  // IME 组合结束
+  const handleCompositionEnd = useCallback(() => {
+    composingRef.current = false
+  }, [])
+
+  // 核心: input 事件处理所有输入
+  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.target as HTMLInputElement
+    const nativeEvent = e.nativeEvent as InputEvent
+    const inputType = nativeEvent.inputType
+    const data = nativeEvent.data
+
+    // IME 组合中 → 跳过，等组合结束
+    if (composingRef.current) {
+      return
+    }
+
+    // 组合结束后的提交
+    if (inputType === 'insertFromComposition') {
+      if (data && data.length > 0) {
+        input.value = ''
+        advanceChars(data.split(''))
+      }
+      return
+    }
+
+    // 直接输入（英文/数字/符号/空格）
+    if (inputType === 'insertText' && data) {
+      input.value = ''
+      advanceChars(data.split(''))
+      return
+    }
+
+    // 粘贴
+    if (inputType === 'insertFromPaste' && data) {
+      input.value = ''
+      advanceChars(data.split(''))
+      return
     }
   }, [advanceChars])
 
@@ -201,5 +191,6 @@ export function useTyping(initialText: string = '') {
     handleCompositionStart,
     handleCompositionUpdate,
     handleCompositionEnd,
+    handleInput,
   }
 }

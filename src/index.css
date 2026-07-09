@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgba(93, 173, 226, 0.3);
+    color: #e1e7ef;
+  }
+
+  /* 隐藏打字输入框的光标 */
+  .hidden-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  /* 滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #252d3f;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #3a4556;
+  }
+}
+
+@layer components {
+  .char-correct {
+    @apply text-correct;
+  }
+
+  .char-error {
+    @apply text-error;
+    text-decoration: underline;
+    text-decoration-color: #e74c3c;
+  }
+
+  .char-current {
+    @apply text-accent;
+    border-bottom: 2px solid #f1c40f;
+    animation: pulse-caret 1s ease-in-out infinite;
+  }
+
+  .char-pending {
+    @apply text-text-secondary;
+  }
+
+  .card {
+    @apply bg-bg-secondary border border-bg-tertiary rounded-xl;
+  }
+
+  .btn-primary {
+    @apply px-6 py-2.5 bg-accent text-bg-primary font-medium rounded-lg
+           hover:bg-accent-hover active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-2.5 bg-bg-tertiary text-text-primary font-medium rounded-lg
+           hover:bg-[#334155] active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold font-mono;
+  }
+
+  .stat-label {
+    @apply text-text-secondary text-sm;
+  }
+}

@@ -26,7 +26,7 @@ export function useTyping(initialText: string = '') {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const isComposingRef = useRef(false)
+  const composingRef = useRef(false)
 
   const reset = useCallback((newText?: string) => {
     const text = newText ?? state.text
@@ -41,6 +41,7 @@ export function useTyping(initialText: string = '') {
       stats: null,
     })
     if (inputRef.current) inputRef.current.value = ''
+    composingRef.current = false
   }, [state.text])
 
   const start = useCallback(() => {
@@ -53,14 +54,6 @@ export function useTyping(initialText: string = '') {
       inputRef.current?.focus()
       if (inputRef.current) inputRef.current.value = ''
     }, 50)
-  }, [])
-
-  const handleCompositionStart = useCallback(() => {
-    isComposingRef.current = true
-  }, [])
-
-  const handleCompositionEnd = useCallback(() => {
-    isComposingRef.current = false
   }, [])
 
   const advanceChar = useCallback((ch: string) => {
@@ -101,48 +94,36 @@ export function useTyping(initialText: string = '') {
     })
   }, [])
 
-  // 只处理 onInput，用 inputType 判断
-  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
-    const nativeEvent = e.nativeEvent as InputEvent
-    const inputType = nativeEvent.inputType
-
-    // IME 正在组合中（拼音输入中）→ 跳过
-    if (inputType === 'insertCompositionText' || isComposingRef.current) {
-      return
-    }
-
-    // 非文本插入类操作 → 跳过（如 deleteContentBackward）
-    if (inputType !== 'insertText' && inputType !== 'insertFromComposition' && inputType !== 'insertFromPaste') {
-      return
-    }
-
-    const input = e.target as HTMLInputElement
-    const data = nativeEvent.data
-
-    if (!data) {
-      input.value = ''
-      return
-    }
-
-    // 清空输入框
-    input.value = ''
-
-    // 逐个字符推进
-    for (const ch of data) {
-      advanceChar(ch)
-    }
-  }, [advanceChar])
-
+  // 核心：用 keydown 处理所有字符输入
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // IME 组合中跳过
-    if (isComposingRef.current) return
+    const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
 
+    // keyCode 229 = IME 正在处理（中文输入法），跳过
+    if (keyCode === 229) return
+
+    // 退格键（暂不实现删除功能）
     if (e.key === 'Backspace') {
       e.preventDefault()
       return
     }
 
-    // 其他键不拦截，让 input 事件处理
+    // 只处理单个可见字符
+    if (e.key.length !== 1) return
+
+    // 忽略带修饰键的组合
+    if (e.ctrlKey || e.metaKey || e.altKey) return
+
+    e.preventDefault()
+    advanceChar(e.key)
+  }, [advanceChar])
+
+  // IME 组合开始/结束（辅助标记，但核心靠 keyCode 229）
+  const handleCompositionStart = useCallback(() => {
+    composingRef.current = true
+  }, [])
+
+  const handleCompositionEnd = useCallback(() => {
+    composingRef.current = false
   }, [])
 
   useEffect(() => {
@@ -169,6 +150,5 @@ export function useTyping(initialText: string = '') {
     handleKeyDown,
     handleCompositionStart,
     handleCompositionEnd,
-    handleInput,
   }
 }

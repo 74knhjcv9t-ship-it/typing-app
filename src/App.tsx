@@ -30,7 +30,6 @@ const App: React.FC = () => {
     handleKeyDown,
     handleCompositionStart,
     handleCompositionEnd,
-    handleInput,
   } = useTyping(activeText)
 
   // 加载历史记录
@@ -147,7 +146,6 @@ const App: React.FC = () => {
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            onInput={handleInput}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"

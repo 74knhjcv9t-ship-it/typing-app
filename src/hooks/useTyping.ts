@@ -24,9 +24,7 @@ export function useTyping(initialText: string = '') {
     stats: null,
   })
 
-  const [composingText, setComposingText] = useState('')
-
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const reset = useCallback((newText?: string) => {
@@ -41,7 +39,6 @@ export function useTyping(initialText: string = '') {
       endTime: null,
       stats: null,
     })
-    setComposingText('')
     if (inputRef.current) inputRef.current.value = ''
   }, [state.text])
 
@@ -57,87 +54,67 @@ export function useTyping(initialText: string = '') {
     }, 50)
   }, [])
 
-  // 批量录入
-  const advanceChars = useCallback((chars: string[]) => {
+  // 每次输入变化时，对比输入框与原文
+  const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
+    const input = e.target as HTMLTextAreaElement
+    const inputVal = input.value
+
     setState((prev) => {
-      if (!prev.isActive || prev.isFinished) return prev
+      if (!prev.isActive && !prev.isFinished) {
+        // 首次输入，自动开始计时
+        const now = Date.now()
+        const chars = inputVal.split('')
+        const correctChars = chars.filter((c, i) => i < prev.text.length && c === prev.text[i]).length
+        const isFinished = chars.length >= prev.text.length
 
-      const newTypedChars = [...prev.typedChars]
-      let newIndex = prev.currentIndex
+        if (isFinished) {
+          return {
+            ...prev,
+            currentIndex: chars.length,
+            typedChars: chars,
+            isActive: false,
+            isFinished: true,
+            startTime: now,
+            endTime: now,
+            stats: calculateStats(chars.length, correctChars, 0, prev.text.length),
+          }
+        }
 
-      for (const ch of chars) {
-        if (newIndex >= prev.text.length) break
-        newTypedChars.push(ch)
-        newIndex++
+        return {
+          ...prev,
+          currentIndex: chars.length,
+          typedChars: chars,
+          isActive: true,
+          startTime: now,
+        }
       }
 
-      const isFinished = newIndex >= prev.text.length
+      // 正常输入中
+      const chars = inputVal.split('')
+      const isFinished = chars.length >= prev.text.length
 
       if (isFinished) {
         const now = Date.now()
         const duration = now - (prev.startTime ?? now)
-        const correctChars = newTypedChars.filter(
-          (c, i) => i < prev.text.length && c === prev.text[i]
-        ).length
+        const correctChars = chars.filter((c, i) => i < prev.text.length && c === prev.text[i]).length
         return {
           ...prev,
-          currentIndex: newIndex,
-          typedChars: newTypedChars,
+          currentIndex: chars.length,
+          typedChars: chars,
           isFinished: true,
           isActive: false,
           endTime: now,
-          stats: calculateStats(
-            newTypedChars.length,
-            correctChars,
-            duration,
-            prev.text.length
-          ),
+          stats: calculateStats(chars.length, correctChars, duration, prev.text.length),
         }
       }
 
       return {
         ...prev,
-        currentIndex: newIndex,
-        typedChars: newTypedChars,
+        currentIndex: chars.length,
+        typedChars: chars,
       }
     })
   }, [])
-
-  // 通道1: keydown → 英文/符号直接输入
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const keyCode = (e.nativeEvent as KeyboardEvent).keyCode
-
-    // 退格
-    if (e.key === 'Backspace') {
-      e.preventDefault()
-      return
-    }
-
-    // 单个可见字符，且不是IME输入（keyCode=229）
-    if (e.key.length === 1 && keyCode !== 229 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault()
-      advanceChars([e.key])
-    }
-  }, [advanceChars])
-
-  // IME 拼音更新
-  const handleCompositionUpdate = useCallback((e: React.CompositionEvent) => {
-    setComposingText(e.data)
-  }, [])
-
-  // 通道2: compositionend → IME组合完成
-  const handleCompositionEnd = useCallback((e: React.CompositionEvent) => {
-    setComposingText('')
-    if (inputRef.current) inputRef.current.value = ''
-
-    const composed = e.data
-    if (composed && composed.length > 0) {
-      advanceChars(composed.split(''))
-    }
-  }, [advanceChars])
-
-  // IME 组合开始（无需特殊处理）
-  const handleCompositionStart = useCallback(() => {}, [])
 
   useEffect(() => {
     if (initialText) {
@@ -156,14 +133,10 @@ export function useTyping(initialText: string = '') {
 
   return {
     state,
-    composingText,
     inputRef,
     containerRef,
     start,
     reset,
-    handleKeyDown,
-    handleCompositionStart,
-    handleCompositionUpdate,
-    handleCompositionEnd,
+    handleInput,
   }
 }

@@ -31,7 +31,6 @@ const App: React.FC = () => {
     handleCompositionStart,
     handleCompositionUpdate,
     handleCompositionEnd,
-    handleInput,
   } = useTyping(activeText)
 
   const loadHistory = useCallback(() => {
@@ -132,7 +131,6 @@ const App: React.FC = () => {
             ref={inputRef}
             className="typing-input"
             onKeyDown={handleKeyDown}
-            onInput={handleInput}
             onCompositionStart={handleCompositionStart}
             onCompositionUpdate={handleCompositionUpdate}
             onCompositionEnd={handleCompositionEnd}
